@@ -22,6 +22,30 @@ function activate(context) {
 	treeDataProvider = new VocabularyTreeDataProvider(storage);
 	vscode.window.registerTreeDataProvider('vocabularyNotebook', treeDataProvider);
 
+	// 初始化翻译器webview视图
+	const translatorView = vscode.window.registerWebviewViewProvider(
+		'vocabularyTranslator',
+		{
+			resolveWebviewView: (webviewView) => {
+				webviewView.webview.options = {
+					enableScripts: true
+				};
+				webviewView.webview.html = getTranslatorWebviewContent();
+
+				// 处理webview消息
+				webviewView.webview.onDidReceiveMessage(async message => {
+					if (message.command === 'translate') {
+						await handleTranslation(message.text, message.targetLanguage, webviewView.webview);
+					} else if (message.command === 'copyResult') {
+						await vscode.env.clipboard.writeText(message.text);
+						vscode.window.showInformationMessage('已复制到剪贴板');
+					}
+				});
+			}
+		}
+	);
+	context.subscriptions.push(translatorView);
+
 	// 初始化webview
 	webviewPanel = new WordWebviewPanel();
 
@@ -120,6 +144,13 @@ function activate(context) {
 			treeDataProvider.refresh();
 		})
 	);
+
+	// 打开翻译器（废弃，现在使用侧边栏webview）
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vocabulary-notebook.openTranslator', async () => {
+			vscode.window.showInformationMessage('请使用左侧"翻译"视图进行翻译');
+		})
+	);
 }
 
 async function learnWord(word) {
@@ -178,10 +209,346 @@ async function translateFile(uri) {
 	}
 }
 
+/**
+ * 处理翻译请求
+ */
+async function handleTranslation(text, targetLanguage, webview) {
+	try {
+		const llmService = new LLMService();
+		const config = vscode.workspace.getConfiguration('vocabularyNotebook.translator');
+
+		// 判断是否为单个单词
+		const isSingleWord = llmService.isSingleWord(text.trim());
+
+		// 执行翻译
+		const result = await llmService.translateText(text, targetLanguage);
+
+		// 更新翻译结果显示
+		webview.postMessage({
+			command: 'updateTranslation',
+			data: {
+				originalText: text,
+				translatedText: result.translatedText,
+				sourceLanguage: result.sourceLanguage,
+				targetLanguage: result.targetLanguage
+			}
+		});
+
+		// 判断是否需要自动添加到单词本
+		const autoAddWord = config.get('autoAddWord');
+		const autoExtractKeywords = config.get('autoExtractKeywords');
+
+		if (isSingleWord && autoAddWord && result.sourceLanguage === 'en') {
+			// 单个英文单词，自动添加到单词本
+			await addWordToNotebook(text.trim());
+		} else if (!isSingleWord && autoExtractKeywords) {
+			// 长文本，提取关键词
+			const keywords = await llmService.extractKeywords(text, result.translatedText);
+			if (keywords.length > 0) {
+				await addKeywordsToNotebook(keywords);
+			}
+		}
+
+	} catch (error) {
+		vscode.window.showErrorMessage(`翻译失败: ${error.message}`);
+	}
+}
+
+/**
+ * 添加单词到单词本
+ */
+async function addWordToNotebook(word) {
+	try {
+		const llmService = new LLMService();
+		const response = await llmService.translate(word, 'word');
+		const wordData = await llmService.parseWordResponse(response);
+
+		storage.addWord(wordData);
+		treeDataProvider.refresh();
+		vscode.window.showInformationMessage(`已将单词 "${wordData.word}" 自动添加到单词本`);
+	} catch (error) {
+		console.error('自动添加单词失败:', error);
+	}
+}
+
+/**
+ * 批量添加关键词到单词本
+ */
+async function addKeywordsToNotebook(keywords) {
+	try {
+		const llmService = new LLMService();
+		let successCount = 0;
+
+		for (const keyword of keywords) {
+			try {
+				const response = await llmService.translate(keyword, 'word');
+				const wordData = await llmService.parseWordResponse(response);
+
+				storage.addWord(wordData);
+				successCount++;
+			} catch (error) {
+				console.error(`添加关键词 ${keyword} 失败:`, error);
+			}
+		}
+
+		if (successCount > 0) {
+			treeDataProvider.refresh();
+			vscode.window.showInformationMessage(`已自动添加 ${successCount} 个关键词到单词本`);
+		}
+	} catch (error) {
+		console.error('批量添加关键词失败:', error);
+	}
+}
+
 function deactivate() {
 	if (storage) {
 		storage.close();
 	}
+}
+
+/**
+ * 获取侧边栏翻译器webview内容
+ */
+function getTranslatorWebviewContent() {
+	return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>翻译器</title>
+    <style>
+        body {
+            padding: 10px;
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-sideBar-background);
+            margin: 0;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 3px;
+            resize: vertical;
+            box-sizing: border-box;
+            font-family: var(--vscode-font-family);
+        }
+
+        textarea:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+        }
+
+        select {
+            width: 100%;
+            padding: 6px 8px;
+            background-color: var(--vscode-dropdown-background);
+            color: var(--vscode-dropdown-foreground);
+            border: 1px solid var(--vscode-dropdown-border);
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        button {
+            flex: 1;
+            padding: 6px 10px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .secondary-button {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+        }
+
+        .secondary-button:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+
+        .result-section {
+            padding: 10px;
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            border-radius: 4px;
+            display: none;
+            margin-top: 5px;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-label {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-bottom: 6px;
+        }
+
+        .result-text {
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .hint {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            line-height: 1.4;
+        }
+
+        .loading {
+            display: none;
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+            text-align: center;
+            padding: 5px 0;
+        }
+
+        .loading.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <textarea id="inputText" placeholder="输入要翻译的内容..."></textarea>
+
+        <select id="targetLanguage">
+            <option value="auto">自动→中文</option>
+            <option value="en">翻译为英文</option>
+            <option value="ja">翻译为日语</option>
+        </select>
+
+        <div class="button-group">
+            <button id="translateBtn">翻译</button>
+            <button id="clearBtn" class="secondary-button">清空</button>
+        </div>
+
+        <div class="hint">
+            提示: 自动模式下，中文→英文，其他→中文
+        </div>
+
+        <div id="loading" class="loading">翻译中...</div>
+
+        <div id="resultSection" class="result-section">
+            <div class="result-label" id="resultLabel">翻译结果</div>
+            <div class="result-text" id="resultText"></div>
+            <div class="button-group" style="margin-top: 8px;">
+                <button id="copyBtn" class="secondary-button">复制</button>
+                <button id="swapBtn" class="secondary-button">反译</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+
+        const inputText = document.getElementById('inputText');
+        const targetLanguage = document.getElementById('targetLanguage');
+        const translateBtn = document.getElementById('translateBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const loading = document.getElementById('loading');
+        const resultSection = document.getElementById('resultSection');
+        const resultLabel = document.getElementById('resultLabel');
+        const resultText = document.getElementById('resultText');
+        const copyBtn = document.getElementById('copyBtn');
+        const swapBtn = document.getElementById('swapBtn');
+
+        translateBtn.addEventListener('click', () => {
+            const text = inputText.value.trim();
+            if (!text) {
+                return;
+            }
+
+            loading.classList.add('show');
+            translateBtn.disabled = true;
+            resultSection.classList.remove('show');
+
+            vscode.postMessage({
+                command: 'translate',
+                text: text,
+                targetLanguage: targetLanguage.value
+            });
+        });
+
+        clearBtn.addEventListener('click', () => {
+            inputText.value = '';
+            resultSection.classList.remove('show');
+            inputText.focus();
+        });
+
+        copyBtn.addEventListener('click', () => {
+            vscode.postMessage({
+                command: 'copyResult',
+                text: resultText.textContent
+            });
+        });
+
+        swapBtn.addEventListener('click', () => {
+            inputText.value = resultText.textContent;
+            resultSection.classList.remove('show');
+            inputText.focus();
+        });
+
+        window.addEventListener('message', event => {
+            const message = event.data;
+
+            if (message.command === 'updateTranslation') {
+                loading.classList.remove('show');
+                translateBtn.disabled = false;
+                resultSection.classList.add('show');
+
+                const { translatedText, sourceLanguage, targetLanguage } = message.data;
+                resultText.textContent = translatedText;
+
+                const langMap = {
+                    'zh': '中文',
+                    'en': '英文',
+                    'ja': '日语'
+                };
+
+                resultLabel.textContent = \`\${langMap[sourceLanguage] || sourceLanguage} → \${langMap[targetLanguage] || targetLanguage}\`;
+            }
+        });
+
+        inputText.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                translateBtn.click();
+            }
+        });
+    </script>
+</body>
+</html>`;
 }
 
 module.exports = {

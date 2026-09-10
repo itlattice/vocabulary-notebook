@@ -52,6 +52,11 @@
         "command": "vocabulary-notebook.refreshNotebook",
         "title": "刷新单词本",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "vocabulary-notebook.openTranslator",
+        "title": "打开翻译器",
+        "icon": "$(symbol-keyword)"
       }
     ],
     "menus": {
@@ -102,6 +107,12 @@
           "id": "vocabularyNotebook",
           "name": "我的单词",
           "icon": "$(book)"
+        },
+        {
+          "id": "vocabularyTranslator",
+          "name": "翻译",
+          "type": "webview",
+          "icon": "$(symbol-keyword)"
         }
       ]
     },
@@ -131,6 +142,16 @@
           "type": "string",
           "default": "",
           "description": "单词本存储路径(留空则使用扩展存储目录)"
+        },
+        "vocabularyNotebook.translator.autoAddWord": {
+          "type": "boolean",
+          "default": false,
+          "description": "翻译单个单词时自动添加到单词本"
+        },
+        "vocabularyNotebook.translator.autoExtractKeywords": {
+          "type": "boolean",
+          "default": false,
+          "description": "翻译长文本时自动提取关键词到单词本"
         }
       }
     }
