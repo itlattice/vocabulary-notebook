@@ -1,0 +1,160 @@
+{
+  "name": "vocabulary-notebook",
+  "displayName": "Vocabulary Notebook",
+  "description": "代码之余，顺带学外语 - 智能单词学习与翻译插件",
+  "version": "0.0.1",
+  "icon":"icon.png",
+  "publisher": "itlattice",
+  "engines": {
+    "vscode": "^1.137.0"
+  },
+  "categories": [
+    "Education",
+    "Other"
+  ],
+  "keywords": [
+    "翻译",
+    "单词",
+    "学习",
+    "vocabulary",
+    "translation",
+    "english",
+    "dictionary"
+  ],
+  "license": "MIT",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vocabulary-notebook.learnWord",
+        "title": "学习单词"
+      },
+      {
+        "command": "vocabulary-notebook.translateFile",
+        "title": "翻译文件"
+      },
+      {
+        "command": "vocabulary-notebook.openNotebook",
+        "title": "打开单词本"
+      },
+      {
+        "command": "vocabulary-notebook.addWord",
+        "title": "手动添加单词"
+      },
+      {
+        "command": "vocabulary-notebook.deleteWord",
+        "title": "删除单词"
+      },
+      {
+        "command": "vocabulary-notebook.refreshNotebook",
+        "title": "刷新单词本",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "vocabulary-notebook.learnWord",
+          "when": "editorHasSelection",
+          "group": "vocabulary@1"
+        },
+        {
+          "command": "vocabulary-notebook.translateFile",
+          "when": "resourceExtname == .txt || resourceExtname == .md",
+          "group": "vocabulary@2"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "vocabulary-notebook.addWord",
+          "when": "view == vocabularyNotebook",
+          "group": "navigation@1"
+        },
+        {
+          "command": "vocabulary-notebook.refreshNotebook",
+          "when": "view == vocabularyNotebook",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "vocabulary-notebook.deleteWord",
+          "when": "view == vocabularyNotebook && viewItem == word",
+          "group": "inline"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "vocabulary-explorer",
+          "title": "单词本",
+          "icon": "$(book)"
+        }
+      ]
+    },
+    "views": {
+      "vocabulary-explorer": [
+        {
+          "id": "vocabularyNotebook",
+          "name": "我的单词",
+          "icon": "$(book)"
+        }
+      ]
+    },
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/itlattice/vocabulary-notebook"
+    },
+    "configuration": {
+      "title": "Vocabulary Notebook",
+      "properties": {
+        "vocabularyNotebook.llm.baseUrl": {
+          "type": "string",
+          "default": "https://api.openai.com/v1",
+          "description": "LLM API Base URL (OpenAI格式)"
+        },
+        "vocabularyNotebook.llm.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "LLM API Key"
+        },
+        "vocabularyNotebook.llm.model": {
+          "type": "string",
+          "default": "gpt-3.5-turbo",
+          "description": "使用的模型名称"
+        },
+        "vocabularyNotebook.storage.path": {
+          "type": "string",
+          "default": "",
+          "description": "单词本存储路径(留空则使用扩展存储目录)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "24.x",
+    "@types/vscode": "^1.137.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.0.0",
+    "eslint": "^10.5.0",
+    "globals": "^17.12.0"
+  },
+  "overrides": {
+    "diff": "^8.0.4",
+    "serialize-javascript": "^7.0.6"
+  },
+  "dependencies": {
+    "axios": "^1.20.0",
+    "better-sqlite3": "^13.0.3"
+  }
+}
