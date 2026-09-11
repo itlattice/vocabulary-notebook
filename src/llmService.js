@@ -224,7 +224,7 @@ ${content}`;
         const apiKey = this.config.get('apiKey');
         const model = this.config.get('model');
 
-        const prompt = `请从以下文本中提取3-5个最重要的英文关键词（单词），只返回单词列表，用逗号分隔，不要其他内容。
+        const prompt = `请从以下文本中提取1-5个最重要的英文单词，用于学习记录，只返回单词列表，用逗号分隔，不要其他内容。（不包括人名/地名/企业名称等）
 
 原文: ${text}
 翻译: ${translatedText}
@@ -302,12 +302,9 @@ ${content}`;
         let instruction = `请将以下${langNames[sourceLang] || sourceLang}内容翻译为${langNames[targetLang] || targetLang}，要求：
 1. 翻译准确、流畅、自然
 2. 保持原文的语气和风格
-3. 只返回翻译结果，不要添加任何解释`;
-
-        // 如果翻译为英文且原文是单个词，要求返回小写
-        if (targetLang === 'en' && this.isSingleWord(text)) {
-            instruction += `\n4. 如果翻译结果是普通单词，必须全部小写（专有名词、缩写除外）`;
-        }
+3. 只返回翻译结果，不要添加任何解释
+4. 注意翻译内容的大小写，如果只是翻译一个词，那么不需要首字母大写，如果的是句子开头或专有名词，则保持，注意翻译习惯。
+`;
 
         return `${instruction}
 
