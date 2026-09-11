@@ -2,7 +2,7 @@
   "name": "vocabulary-notebook",
   "displayName": "Vocabulary Notebook",
   "description": "代码之余，顺带学外语 - 智能单词学习与翻译插件",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "icon":"icon.png",
   "publisher": "itlattice",
   "engines": {
@@ -57,6 +57,16 @@
         "command": "vocabulary-notebook.openTranslator",
         "title": "打开翻译器",
         "icon": "$(symbol-keyword)"
+      },
+      {
+        "command": "vocabulary-notebook.exportData",
+        "title": "导出单词本",
+        "icon": "$(export)"
+      },
+      {
+        "command": "vocabulary-notebook.importData",
+        "title": "导入单词本",
+        "icon": "$(import)"
       }
     ],
     "menus": {
@@ -82,6 +92,16 @@
           "command": "vocabulary-notebook.refreshNotebook",
           "when": "view == vocabularyNotebook",
           "group": "navigation@2"
+        },
+        {
+          "command": "vocabulary-notebook.exportData",
+          "when": "view == vocabularyNotebook",
+          "group": "navigation@3"
+        },
+        {
+          "command": "vocabulary-notebook.importData",
+          "when": "view == vocabularyNotebook",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
@@ -176,6 +196,8 @@
   },
   "dependencies": {
     "axios": "^1.20.0",
-    "better-sqlite3": "^13.0.3"
+    "better-sqlite3": "^13.0.3",
+    "archiver": "^7.0.1",
+    "unzipper": "^0.12.3"
   }
 }

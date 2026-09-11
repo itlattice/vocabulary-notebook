@@ -3,26 +3,47 @@ const LLMService = require('./src/llmService');
 const VocabularyStorage = require('./src/storage');
 const VocabularyTreeDataProvider = require('./src/treeDataProvider');
 const WordWebviewPanel = require('./src/webviewPanel');
+const ImportExportService = require('./src/importExportService');
 const fs = require('fs');
 
 let storage;
 let treeDataProvider;
 let webviewPanel;
+let importExportService;
 
 /**
  * @param {vscode.ExtensionContext} context
  */
 function activate(context) {
-	console.log('vocabulary-notebook 插件已激活');
+	console.log('[Extension] vocabulary-notebook 插件开始激活...');
 
 	// 初始化存储
 	storage = new VocabularyStorage(context);
+	console.log('[Extension] Storage initialized:', !!storage);
 
 	// 初始化树视图
 	treeDataProvider = new VocabularyTreeDataProvider(storage);
 	vscode.window.registerTreeDataProvider('vocabularyNotebook', treeDataProvider);
+	console.log('[Extension] TreeDataProvider registered');
 
-	// 初始化翻译器webview视图
+	// 初始化webview（如果已存在则重新设置storage）
+	if (!webviewPanel) {
+		webviewPanel = new WordWebviewPanel();
+		console.log('[Extension] New WordWebviewPanel created');
+	} else {
+		console.log('[Extension] WordWebviewPanel already exists, reusing');
+	}
+
+	// 直接将 storage 作为参数传递，而不是存储在实例中
+	webviewPanel.setStorage(storage);
+	console.log('[Extension] WebviewPanel storage set:', !!storage);
+
+	// 同时在全局保存 storage 引用，供 webviewPanel 使用
+	webviewPanel._globalStorage = storage;
+
+	// 初始化导入导出服务
+	importExportService = new ImportExportService(storage);
+	console.log('[Extension] ImportExportService initialized');
 	const translatorView = vscode.window.registerWebviewViewProvider(
 		'vocabularyTranslator',
 		{
@@ -87,10 +108,16 @@ function activate(context) {
 	// 打开单词详情
 	context.subscriptions.push(
 		vscode.commands.registerCommand('vocabulary-notebook.openNotebook', async (word) => {
+			console.log('[Extension] openNotebook command called for word:', word);
+			console.log('[Extension] webviewPanel exists:', !!webviewPanel);
+			console.log('[Extension] webviewPanel.storage exists:', webviewPanel ? !!webviewPanel.storage : 'N/A');
+
 			if (word) {
 				const wordData = storage.getWord(word);
 				if (wordData) {
-					const panel = webviewPanel.show(wordData);
+					// 获取所有单词用于导航
+					const allWords = storage.getAllWords();
+					const panel = webviewPanel.show(wordData, allWords);
 
 					// 处理webview消息
 					panel.webview.onDidReceiveMessage(
@@ -98,7 +125,23 @@ function activate(context) {
 							if (message.command === 'addToNotebook') {
 								storage.addWord(message.data);
 								treeDataProvider.refresh();
+								// 刷新webview显示，传入所有单词以保持导航功能
+								const allWords = storage.getAllWords();
+								webviewPanel.updateWord(message.data, allWords);
 								vscode.window.showInformationMessage(`已将 "${message.data.word}" 添加到单词本`);
+							} else if (message.command === 'navigateWord') {
+								const allWords = storage.getAllWords();
+								const currentIndex = allWords.findIndex(w => w.word === wordData.word);
+
+								let nextIndex = currentIndex;
+								if (message.direction === 'prev') {
+									nextIndex = currentIndex > 0 ? currentIndex - 1 : allWords.length - 1;
+								} else if (message.direction === 'next') {
+									nextIndex = currentIndex < allWords.length - 1 ? currentIndex + 1 : 0;
+								}
+
+								const nextWord = allWords[nextIndex];
+								webviewPanel.show(nextWord, allWords);
 							}
 						}
 					);
@@ -151,6 +194,21 @@ function activate(context) {
 			vscode.window.showInformationMessage('请使用左侧"翻译"视图进行翻译');
 		})
 	);
+
+	// 导出单词本
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vocabulary-notebook.exportData', async () => {
+			await importExportService.exportData();
+		})
+	);
+
+	// 导入单词本
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vocabulary-notebook.importData', async () => {
+			await importExportService.importData();
+			treeDataProvider.refresh();
+		})
+	);
 }
 
 async function learnWord(word) {
@@ -161,7 +219,7 @@ async function learnWord(word) {
 		const response = await llmService.translate(word, 'word');
 		const wordData = await llmService.parseWordResponse(response);
 
-		// 显示webview
+		// 显示webview（不传allWords，因为这不是从单词本打开的）
 		const panel = webviewPanel.show(wordData);
 
 		// 处理webview消息
@@ -170,6 +228,8 @@ async function learnWord(word) {
 				if (message.command === 'addToNotebook') {
 					storage.addWord(message.data);
 					treeDataProvider.refresh();
+					// 刷新webview显示（不需要传 allWords，因为这是从学习单词打开的）
+					webviewPanel.updateWord(message.data, []);
 					vscode.window.showInformationMessage(`已将 "${message.data.word}" 添加到单词本`);
 				}
 			}

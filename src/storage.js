@@ -81,7 +81,7 @@ class VocabularyStorage {
     }
 
     getAllWords() {
-        const stmt = this.db.prepare('SELECT * FROM words ORDER BY created_at DESC');
+        const stmt = this.db.prepare('SELECT * FROM words ORDER BY word COLLATE NOCASE ASC');
         const rows = stmt.all();
 
         return rows.map(row => ({
@@ -89,6 +89,16 @@ class VocabularyStorage {
             meanings: JSON.parse(row.meanings),
             examples: JSON.parse(row.examples)
         }));
+    }
+
+    hasWord(word) {
+        const stmt = this.db.prepare('SELECT COUNT(*) as count FROM words WHERE word = ?');
+        const result = stmt.get(word);
+        return result.count > 0;
+    }
+
+    getDbPath() {
+        return this.db.name;
     }
 
     close() {
