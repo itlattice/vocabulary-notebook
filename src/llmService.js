@@ -224,7 +224,7 @@ ${content}`;
         const apiKey = this.config.get('apiKey');
         const model = this.config.get('model');
 
-        const prompt = `请从以下文本中提取1-5个最重要的英文单词，用于学习记录，只返回单词列表，用逗号分隔，不要其他内容。（不包括人名/地名/企业名称等）
+        const prompt = `请从以下文本中提取1-5个最重要的英文单词，用于学习记录，只返回单词列表，用逗号分隔，不要其他内容（不包括人名/地名/企业名称等）。如果单词是复数的，请改为单数的词汇（部分特殊词外，例如children/men/feet等）。
 
 原文: ${text}
 翻译: ${translatedText}

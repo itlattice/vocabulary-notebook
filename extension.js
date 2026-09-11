@@ -44,6 +44,7 @@ function activate(context) {
 	// 初始化导入导出服务
 	importExportService = new ImportExportService(storage);
 	console.log('[Extension] ImportExportService initialized');
+
 	const translatorView = vscode.window.registerWebviewViewProvider(
 		'vocabularyTranslator',
 		{
@@ -53,7 +54,6 @@ function activate(context) {
 				};
 				webviewView.webview.html = getTranslatorWebviewContent();
 
-				// 处理webview消息
 				webviewView.webview.onDidReceiveMessage(async message => {
 					if (message.command === 'translate') {
 						await handleTranslation(message.text, message.targetLanguage, webviewView.webview);
@@ -66,9 +66,6 @@ function activate(context) {
 		}
 	);
 	context.subscriptions.push(translatorView);
-
-	// 初始化webview
-	webviewPanel = new WordWebviewPanel();
 
 	// 学习单词命令
 	context.subscriptions.push(
@@ -121,29 +118,7 @@ function activate(context) {
 
 					// 处理webview消息
 					panel.webview.onDidReceiveMessage(
-						message => {
-							if (message.command === 'addToNotebook') {
-								storage.addWord(message.data);
-								treeDataProvider.refresh();
-								// 刷新webview显示，传入所有单词以保持导航功能
-								const allWords = storage.getAllWords();
-								webviewPanel.updateWord(message.data, allWords);
-								vscode.window.showInformationMessage(`已将 "${message.data.word}" 添加到单词本`);
-							} else if (message.command === 'navigateWord') {
-								const allWords = storage.getAllWords();
-								const currentIndex = allWords.findIndex(w => w.word === wordData.word);
-
-								let nextIndex = currentIndex;
-								if (message.direction === 'prev') {
-									nextIndex = currentIndex > 0 ? currentIndex - 1 : allWords.length - 1;
-								} else if (message.direction === 'next') {
-									nextIndex = currentIndex < allWords.length - 1 ? currentIndex + 1 : 0;
-								}
-
-								const nextWord = allWords[nextIndex];
-								webviewPanel.show(nextWord, allWords);
-							}
-						}
+						message => handleWordPanelMessage(message, wordData, allWords)
 					);
 				}
 			}
@@ -209,6 +184,43 @@ function activate(context) {
 			treeDataProvider.refresh();
 		})
 	);
+}
+
+function handleWordPanelMessage(message, displayedWordData, allWords = []) {
+	if (message.command === 'addToNotebook') {
+		storage.addWord(message.data);
+		treeDataProvider.refresh();
+		const updatedWords = storage.getAllWords();
+		webviewPanel.updateWord(message.data, allWords.length > 0 ? updatedWords : []);
+		vscode.window.showInformationMessage(`已将 "${message.data.word}" 添加到单词本`);
+		return;
+	}
+
+	if (message.command === 'removeFromNotebook') {
+		storage.deleteWord(message.data.word);
+		treeDataProvider.refresh();
+		const updatedWords = storage.getAllWords();
+		webviewPanel.updateWord(displayedWordData, allWords.length > 0 ? updatedWords : []);
+		vscode.window.showInformationMessage(`已从单词本删除 "${message.data.word}"`);
+		return;
+	}
+
+	if (message.command === 'navigateWord') {
+		const currentWords = storage.getAllWords();
+		const currentIndex = currentWords.findIndex(w => w.word === displayedWordData.word);
+
+		let nextIndex = currentIndex;
+		if (message.direction === 'prev') {
+			nextIndex = currentIndex > 0 ? currentIndex - 1 : currentWords.length - 1;
+		} else if (message.direction === 'next') {
+			nextIndex = currentIndex < currentWords.length - 1 ? currentIndex + 1 : 0;
+		}
+
+		const nextWord = currentWords[nextIndex];
+		if (nextWord) {
+			webviewPanel.show(nextWord, currentWords);
+		}
+	}
 }
 
 async function learnWord(word) {

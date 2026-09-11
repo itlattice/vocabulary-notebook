@@ -229,6 +229,13 @@ class WordWebviewPanel {
             border-radius: 12px;
             font-size: 12px;
             margin-left: 10px;
+            border: none;
+        }
+        button.status-badge {
+            cursor: pointer;
+        }
+        button.status-badge:hover {
+            opacity: 0.9;
         }
     </style>
 </head>
@@ -237,7 +244,7 @@ class WordWebviewPanel {
         <div class="word-header">
             <div class="word-title">
                 ${wordData.word}
-                ${isInNotebook ? '<span class="status-badge">✓ 已收藏</span>' : ''}
+                ${isInNotebook ? '<button class="status-badge" onclick="removeFromNotebook()" title="点击取消收藏">✓ 已收藏</button>' : ''}
             </div>
             <div class="word-phonetic">${wordData.phonetic || ''}</div>
         </div>
@@ -270,6 +277,15 @@ class WordWebviewPanel {
             vscode.postMessage({
                 command: 'addToNotebook',
                 data: ${JSON.stringify(wordData)}
+            });
+        }
+
+        function removeFromNotebook() {
+            vscode.postMessage({
+                command: 'removeFromNotebook',
+                data: {
+                    word: ${JSON.stringify(wordData.word)}
+                }
             });
         }
 

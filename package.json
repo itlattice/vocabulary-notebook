@@ -66,7 +66,7 @@
       {
         "command": "vocabulary-notebook.importData",
         "title": "导入单词本",
-        "icon": "$(import)"
+        "icon": "$(cloud-download)"
       }
     ],
     "menus": {
