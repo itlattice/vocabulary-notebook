@@ -1,10 +1,56 @@
+# 开发和测试文件
 .vscode/**
 .vscode-test/**
 test/**
+.eslintrc.json
 .gitignore
-.yarnrc
-vsc-extension-quickstart.md
-**/jsconfig.json
-**/*.map
-**/eslint.config.mjs
-**/.vscode-test.*
+.vscodeignore
+
+# 文档和说明文件
+CLAUDE.md
+TEST_FEATURES.md
+changelog.md
+.claude/**
+
+# Git 相关
+.git
+.gitignore
+
+# Node.js
+node_modules/**/test/**
+node_modules/**/tests/**
+node_modules/**/*.ts
+node_modules/**/*.md
+node_modules/**/README.md
+node_modules/**/LICENSE
+node_modules/**/CHANGELOG.md
+node_modules/**/HISTORY.md
+node_modules/**/.npmignore
+node_modules/**/.eslintrc
+node_modules/**/.eslintrc.js
+node_modules/**/.eslintrc.json
+node_modules/**/tsconfig.json
+node_modules/**/*.map
+node_modules/**/example/**
+node_modules/**/examples/**
+node_modules/**/docs/**
+node_modules/**/coverage/**
+node_modules/**/.github/**
+
+# 只保留必要的依赖,排除开发依赖
+node_modules/@types/**
+node_modules/@vscode/test-cli/**
+node_modules/@vscode/test-electron/**
+node_modules/eslint/**
+node_modules/globals/**
+node_modules/@eslint/**
+node_modules/@humanwhocodes/**
+node_modules/@nodelib/**
+node_modules/ajv/**
+node_modules/eslint-*/**
+
+# 图片资源(保留icon.png,排除其他)
+image/**
+
+# 其他
+*.vsix
